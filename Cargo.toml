@@ -1,0 +1,10 @@
+[package]
+name = "bevy-reflect-check"
+version = "0.1.0"
+edition = "2024"
+
+[dependencies]
+bevy = { version = "0.15.0" }
+cargo_metadata = "0.19.1"
+syn = { version = "2.0.90", features = ["full"] }
+walkdir = "2.5.0"
