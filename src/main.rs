@@ -2,7 +2,8 @@ use cargo_metadata::camino::Utf8PathBuf;
 use cargo_metadata::{Metadata, MetadataCommand};
 use std::collections::HashMap;
 use std::{fs, path::Path};
-use syn::{Attribute, File, Item, Meta, Visibility, parse_file};
+use syn::punctuated::Punctuated;
+use syn::{Attribute, File, Item, Meta, Token, Visibility, parse_file};
 use walkdir::{DirEntry, WalkDir};
 
 fn main() {
@@ -167,6 +168,42 @@ fn derives_reflect_and_component_but_no_reflect_component(attrs: &[Attribute]) -
                         Ok(())
                     })
                     .ok();
+            }
+            Meta::List(meta_list) if meta_list.path.is_ident("cfg_attr") => {
+                let nested = meta_list
+                    .parse_args_with(Punctuated::<Meta, Token![,]>::parse_terminated)
+                    .unwrap();
+                for meta in nested {
+                    if let Meta::List(meta_list) = meta {
+                        if meta_list.path.is_ident("derive") {
+                            meta_list
+                                .parse_nested_meta(|inner_nested_meta| {
+                                    if inner_nested_meta.path.is_ident("Reflect") {
+                                        derives_reflect = true;
+                                    } else if inner_nested_meta.path.is_ident("Component") {
+                                        derives_component = true;
+                                    }
+                                    Ok(())
+                                })
+                                .unwrap();
+                        } else if meta_list.path.is_ident("reflect") {
+                            // We don't handle where clauses like this:
+                            // #[cfg_attr(
+                            //     feature = "bevy_reflect",
+                            //     reflect(where T: TypePath),
+                            // )]
+                            // but I don't think that we need to.
+                            meta_list
+                                .parse_nested_meta(|inner_nested_meta| {
+                                    if inner_nested_meta.path.is_ident("Component") {
+                                        has_reflect_component_attr = true;
+                                    }
+                                    Ok(())
+                                })
+                                .ok();
+                        }
+                    }
+                }
             }
             // Check for `#[reflect(Component)]`
             Meta::List(meta_list) if meta_list.path.is_ident("reflect") => {
